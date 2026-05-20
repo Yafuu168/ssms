@@ -155,7 +155,7 @@
                     document.getElementById('main_field').value = team.main_field || '';
                     document.getElementById('sub_field').value = team.sub_field || '';
                     document.getElementById('team_memo').value = team.memo || '';
-                    isLocked = team.IS_LOCKED || 'N';
+                    isLocked = team.is_locked || 'N';
                 } else {
                     // 💡 防呆修正：若查無資料，初始化建立介面，不讓系統卡死
                     document.getElementById('team_id').value = '';
@@ -286,7 +286,7 @@
                     main_field: document.getElementById('main_field').value,
                     sub_field: document.getElementById('sub_field').value,
                     memo: document.getElementById('team_memo').value,
-                    IS_LOCKED: 'N'
+                    is_locked: 'N'
                 };
 
                 let savedTeamId = currentTeamId;
