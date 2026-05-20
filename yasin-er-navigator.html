@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大會系統 ER-Model 導航地圖 | Yasin Tech Center</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        :root { --primary: #f1c40f; --bg: #1a1a1a; --card: #262626; --text-dim: #888; --accent: #3498db; }
+        html, body { background: var(--bg); color: white; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; margin: 0; padding: 0; width: 100%; height: 100%; overflow-x: hidden; }
+        
+        .top-section { height: 18vh; min-height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center; border-bottom: 2px solid var(--primary); background: #111; padding: 10px 20px; box-sizing: border-box; }
+        .top-section h1 { margin: 0; color: var(--primary); letter-spacing: 2px; font-size: 1.8em; }
+        .nav-bar { display: flex; gap: 15px; margin-top: 10px; }
+        .nav-link { background: #333; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 0.85em; font-weight: bold; border: 1px solid #555; transition: 0.2s; }
+        .nav-link:hover { background: var(--primary); color: #000; border-color: var(--primary); }
+
+        .canvas-section { height: 78vh; width: 100%; padding: 20px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; background: #1f1f1f; overflow: auto; }
+        
+        .mermaid { width: 100%; max-width: 1400px; height: 100%; text-align: center; }
+        .mermaid svg { width: 100% !important; height: auto !important; max-height: 72vh !important; }
+        .mermaid svg .node { cursor: pointer !important; }
+        
+        .footer-section { height: 3vh; min-height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.75em; color: #444; font-family: monospace; border-top: 1px solid #222; background: #111; box-sizing: border-box; }
+    </style>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            securityLevel: 'loose', 
+            flowchart: {
+                nodeSpacing: 50,      
+                rankSpacing: 45,      
+                htmlLabels: true,
+                useMaxWidth: false    
+            }
+        });
+    </script>
+</head>
+<body>
+
+<div class="top-section">
+    <h1>📊 大數盃賽事系統 ER-Model 開發者地圖</h1>
+    <div class="nav-bar">
+        <a href="yasin-main.html" class="nav-link">🏠 返回管理總台</a>
+        <a href="yasin-org-loc-mgt.html" class="nav-link">🏆 承辦學校維護</a>
+    </div>
+</div>
+
+<div class="canvas-section">
+    <div class="mermaid">
+        graph TD
+            %% 1. 大會基礎主檔層 (頂層)
+            subgraph 主檔層 ["1. 大會基礎主檔層 (Master Data)"]
+                DB_ORG["<div style='font-size:16px; padding:8px;'>🏆 NMC_ORGANIZATIONS<br><small>(承辦學校輪值主檔)</small></div>"]
+                DB_FLD["<div style='font-size:16px; padding:8px;'>🗺️ NMC_BALLFIELDS<br><small>(認證球場資料主檔)</small></div>"]
+                DB_CST["<div style='font-size:16px; padding:8px;'>📋 NMC_CONSTANTS<br><small>(事件與性別條款常數)</small></div>"]
+            end
+
+            %% 2. 球隊與球員架構層 (中層)
+            subgraph 成員層 ["2. 球隊與成員架構層 (Roster Architecture)"]
+                DB_TMS["<div style='font-size:16px; padding:8px;'>⚾ NMC_TEAMS<br><small>(參賽球隊基本資料)</small></div>"]
+                DB_PLR["<div style='font-size:16px; padding:8px;'>👥 NMC_PLAYERS<br><small>(大會球員登錄主檔)</small></div>"]
+                DB_RST["<div style='font-size:16px; padding:8px;'>📜 NMC_TEAM_ROSTERS<br><small>(球隊 40 人參賽名單)</small></div>"]
+            end
+
+            %% 3. 賽期與比賽日誌層 (底層：調整宣告順序，讓 LOG 靠左，RNK 靠右)
+            subgraph 紀錄層 ["3. 賽期與常規賽事紀錄層 (Game Logs Core)"]
+                DB_SSN["<div style='font-size:16px; padding:8px;'>📅 NMC_SEASONS<br><small>(賽季與主辦場地分配)</small></div>"]
+                DB_GMS["<div style='font-size:16px; padding:8px;'>⚔️ NMC_GAMES<br><small>(例行賽/明星賽賽程)</small></div>"]
+                DB_LOG["<div style='font-size:16px; padding:8px;'>📝 NMC_GAME_LOGS<br><small>(即時比賽席次紀錄)</small></div>"]
+                DB_RNK["<div style='font-size:16px; padding:8px;'>📊 NMC_RANKING<br><small>(戰績積分與數據統計)</small></div>"]
+            end
+
+            %% 關係連線基本對齊
+            DB_ORG -->|一校多隊| DB_TMS
+            DB_ORG -->|輪值主辦| DB_SSN
+            DB_FLD -->|場地指派| DB_SSN
+            
+            DB_TMS -->|球隊登錄| DB_RST
+            DB_PLR -->|球員報名| DB_RST
+            
+            DB_SSN -->|季度賽程| DB_GMS
+            DB_RST -->|派員出賽| DB_GMS
+            
+            %% 核心路由調整：消除交叉的關鍵布局
+            DB_GMS -->|產生打席| DB_LOG
+            DB_GMS -->|勝負積分| DB_RNK
+            
+            %% 常數條款從右側順暢拉至左側的 LOG，不再與 GAMES 往下指的線交叉
+            DB_CST -->|條款對照| DB_LOG
+
+            %% 高級外觀美化定義
+            classDef default fill:#2c3e50,stroke:#3498db,stroke-width:2px,color:#fff;
+            style DB_ORG fill:#23303e,stroke:#3498db,stroke-width:2.5px;
+            style DB_FLD fill:#23303e,stroke:#3498db,stroke-width:2.5px;
+            style DB_CST fill:#23303e,stroke:#3498db,stroke-width:2.5px;
+            
+            style DB_TMS fill:#3a281a,stroke:#e67e22,stroke-width:2.5px;
+            style DB_PLR fill:#3a281a,stroke:#e67e22,stroke-width:2.5px;
+            style DB_RST fill:#3a281a,stroke:#e67e22,stroke-width:2.5px;
+            
+            style DB_SSN fill:#1c3d27,stroke:#2ecc71,stroke-width:2.5px;
+            style DB_GMS fill:#1c3d27,stroke:#2ecc71,stroke-width:2.5px;
+            style DB_LOG fill:#3d1c1c,stroke:#e74c3c,stroke-width:2.5px;
+            style DB_RNK fill:#2d1c3d,stroke:#9b59b6,stroke-width:2.5px;
+
+            %% 點擊路由跳轉
+            click DB_ORG href "yasin-org-loc-mgt.html" "跳轉至：承辦學校輪值維護"
+            click DB_TMS href "yasin-team-base.html" "跳轉至：參賽球隊基本資料維護"
+            click DB_FLD href "yasin-ballfield-mgt.html" "跳轉至：大會認證球場維護"
+            click DB_PLR href "yasin-player-reg.html" "跳轉至：大會球員登錄審核"
+            click DB_RST href "yasin-roster-mgt.html" "跳轉至：隊伍40人名單異動"
+            click DB_SSN href "yasin-seasons-mgt.html" "跳轉至：季度賽事與場地分配"
+            click DB_GMS href "yasin-games-mgt.html" "跳轉至：例行賽與明星賽賽程"
+            click DB_LOG href "yasin-game-logs.html" "跳轉至：即時比賽紀錄錄入"
+            click DB_RNK href "yasin-ranking-board.html" "跳轉至：戰績排名與統計看板"
+            click DB_CST href "yasin-constants-mgt.html" "跳轉至：事件對照常數維護"
+    </div>
+</div>
+
+<div class="footer-section">
+    Yasin Tech Center | ER-Navigator v3.1.0 (2026-05-18 13:45)
+</div>
+
+</body>
+</html>
