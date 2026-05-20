@@ -278,4 +278,185 @@
         function addPlayerRow(data = {}) {
             const tbody = document.getElementById('rosterTableBody');
             if (!tbody) return;
-            const rowId = 'row_'
+            const rowId = 'row_' + Date.now() + Math.random().toString(36).substr(2, 5);
+            const tr = document.createElement('tr');
+            tr.id = rowId;
+            tr.className = 'hover:bg-gray-50 transition';
+
+            let defSelectOptions = `<option value="">-- 請選擇 --</option>`;
+            defOptionsCached.forEach(opt => {
+                const selected = (data.def_id === opt.code) ? 'selected' : '';
+                defSelectOptions += `<option value="${opt.code}" ${selected}>${opt.code} - ${opt.name_zh}</option>`;
+            });
+
+            tr.innerHTML = `
+                <td class="p-2">
+                    <input type="hidden" class="player-id" value="${data.player_id || ''}">
+                    <input type="text" class="player-num w-full border rounded p-1 text-center" value="${data.player_num || ''}" placeholder="018">
+                </td>
+                <td class="p-2"><input type="text" class="player-pid w-full border rounded p-1" value="${data.pid || ''}" placeholder="學號"></td>
+                <td class="p-2"><input type="text" class="player-name w-full border rounded p-1" value="${data.player_name || ''}" placeholder="姓名"></td>
+                <td class="p-2">
+                    <select class="player-gender w-full border rounded p-1">
+                        <option value="M" ${data.gender === 'M' ? 'selected' : ''}>男</option>
+                        <option value="F" ${data.gender === 'F' ? 'selected' : ''}>女</option>
+                    </select>
+                </td>
+                <td class="p-2">
+                    <select class="player-def-id w-full border rounded p-1 font-semibold text-blue-800">
+                        ${defSelectOptions}
+                    </select>
+                </td>
+                <td class="p-2"><input type="date" class="player-join-date w-full border rounded p-1" value="${data.join_date || ''}"></td>
+                <td class="p-2"><input type="text" class="player-memo w-full border rounded p-1" value="${data.memo || ''}"></td>
+                <td class="p-2 text-center">
+                    <button type="button" onclick="deleteRow('${rowId}')" class="btn-delete text-red-600 hover:text-red-900 font-medium">刪除</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        function deleteRow(rowId) {
+            if (isLocked === 'Y') return;
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+        }
+
+        // 💾 階段一儲存：主檔 (Master) 獨立全域函數
+        async function saveMasterData() {
+            const teamNameEl = document.getElementById('team_name');
+            if (!teamNameEl) return;
+            const teamName = teamNameEl.value.trim();
+            if (!teamName) {
+                alert('請先輸入「隊名」！');
+                return;
+            }
+
+            try {
+                const teamData = {
+                    team_name: teamName,
+                    school: document.getElementById('school').value,
+                    department: document.getElementById('department').value,
+                    established_year: document.getElementById('established_year').value ? parseInt(document.getElementById('established_year').value) : null,
+                    main_field: document.getElementById('main_field').value,
+                    sub_field: document.getElementById('sub_field').value,
+                    memo: document.getElementById('team_memo').value,
+                    is_locked: 'N'
+                };
+
+                if (currentTeamId) {
+                    teamData.team_id = currentTeamId;
+                }
+
+                const { data, error } = await sbClient
+                    .from('NMC_TEAMS')
+                    .upsert(teamData)
+                    .select();
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    currentTeamId = data[0].team_id;
+                    document.getElementById('team_id').value = currentTeamId;
+                    alert(`球隊 [${teamName}] 主檔儲存成功！已生成球隊編號，下方名單開放登錄。`);
+                    
+                    await refreshQueryLov();   
+                    toggleDetailSection(true); 
+                    if (document.querySelectorAll('#rosterTableBody tr').length === 0) {
+                        addPlayerRow();        
+                    }
+                }
+            } catch (err) {
+                alert('主檔儲存失敗: ' + err.message);
+            }
+        }
+
+        // 📋 階段二儲存：明細檔 (Detail) 獨立全域函數
+        async function saveDetailData() {
+            if (!currentTeamId) {
+                alert('錯誤：缺乏球隊編號，請先執行第一階段「儲存球隊主檔」！');
+                return;
+            }
+
+            try {
+                const rows = document.querySelectorAll('#rosterTableBody tr');
+                const rosterDataArray = [];
+
+                rows.forEach(row => {
+                    const name = row.querySelector('.player-name').value.trim();
+                    if (name) { 
+                        rosterDataArray.push({
+                            team_id: currentTeamId,
+                            player_num: row.querySelector('.player-num').value.trim(),
+                            pid: row.querySelector('.player-pid').value.trim(),
+                            player_name: name,
+                            gender: row.querySelector('.player-gender').value,
+                            def_id: row.querySelector('.player-def-id').value || null, 
+                            join_date: row.querySelector('.player-join-date').value || null,
+                            memo: row.querySelector('.player-memo').value.trim()
+                        });
+                    }
+                });
+
+                const { error: deleteError } = await sbClient
+                    .from('NMC_TEAM_ROSTERS')
+                    .delete()
+                    .eq('team_id', currentTeamId);
+
+                if (deleteError) throw deleteError;
+
+                if (rosterDataArray.length > 0) {
+                    const { error: insertError } = await sbClient
+                        .from('NMC_TEAM_ROSTERS')
+                        .insert(rosterDataArray);
+                    
+                    if (insertError) throw insertError;
+                }
+
+                alert('40人球員名單明細儲存成功！');
+                await loadTeamData();
+
+            } catch (err) {
+                alert('明細儲存失敗: ' + err.message);
+            }
+        }
+
+        function handleLockStatus(status) {
+            const badge = document.getElementById('lockStatusBadge');
+            const btnSaveMaster = document.getElementById('btnSaveMaster');
+            const btnSaveDetail = document.getElementById('btnSaveDetail');
+            const btnAddPlayer = document.getElementById('btnAddPlayer');
+
+            if (!badge) return;
+
+            if (status === 'Y') {
+                badge.innerText = '🔒 已鎖定 (唯讀)';
+                badge.className = 'px-4 py-1.5 rounded-full text-sm font-semibold bg-red-100 text-red-700';
+                if(btnSaveMaster) btnSaveMaster.style.display = 'none';
+                if(btnSaveDetail) btnSaveDetail.style.display = 'none';
+                if(btnAddPlayer) btnAddPlayer.style.display = 'none';
+                disableAllInputs();
+            } else {
+                badge.innerText = '🔓 開放編輯中';
+                badge.className = 'px-4 py-1.5 rounded-full text-sm font-semibold bg-green-100 text-green-700';
+                if(btnSaveMaster) btnSaveMaster.style.display = 'block';
+                if(btnSaveDetail) btnSaveDetail.style.display = 'block';
+                if(btnAddPlayer) btnAddPlayer.style.display = 'block';
+            }
+        }
+
+        function disableAllInputs() {
+            const form = document.getElementById('teamForm');
+            if (!form) return;
+            const inputs = form.querySelectorAll('input, select, button');
+            inputs.forEach(input => {
+                if(input.id !== 'queryTeamSelect' && input.getAttribute('onclick') !== 'executeQuery()') {
+                    input.disabled = true;
+                    input.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+                }
+            });
+            document.querySelectorAll('.btn-delete').forEach(btn => btn.style.display = 'none');
+        }
+    </script>
+</body>
+</html>
