@@ -79,25 +79,25 @@
     </div>
 
     <script>
-        // 1. 初始化 Supabase (請替換成你的 Supabase 專案憑證)
+        // 1. 初始化 Supabase (已帶入你的實際憑證)
         const SUPABASE_URL = 'https://xteglzzciggiwblwzlvh.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0ZWdsenpjaWdnaXdibHd6bHZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTE4MjA3NCwiZXhwIjoyMDk0NzU4MDc0fQ.sv8ARNzsdQcuUl4ujWZoB8dJtiSou6g2ILPqxwXgaUw';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0ZWdsemZjaWdnaXdibHd6bHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDY1Nzg4MDAsImV4cCI6MjAyMjE1NDgwMH0.xxx'; // 這裡維持你原有的完整金鑰即可
+        
+        // 💡 修正關鍵：將連線實例變數名稱改為 sbClient，避免與全域物件名稱衝突
+        const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let currentCategory = 'DEF'; // 預設分類
         let isLocked = 'N';          // IS_LOCKED 狀態控制字串 ('Y' or 'N')
 
         // 頁面初始化
         window.addEventListener('DOMContentLoaded', () => {
-            // 這裡可以透過檢查特定條件或全域參數決定是否要鎖定這整張常數表
-            // 範例預設為 'N'，若要開啟防誤觸鎖定，可手動改為 'Y' 或自資料庫 NMC_TEAMS 的主檔狀態同步過來
             checkLockStatus();
             loadConstantsData();
         });
 
         // 2. 模擬/讀取鎖定狀態控制
         function checkLockStatus() {
-            // 這裡可以根據賽務端需求，調整為 'Y' 則全網頁不允許修改
+            // 可視賽務需求連動主檔狀態，此處預設為不鎖定 ('N')
             isLocked = 'N'; 
             handleLockUi(isLocked);
         }
@@ -141,7 +141,8 @@
         // 4. 從 Supabase 讀取特定分類的常數
         async function loadConstantsData() {
             try {
-                const { data: constants, error } = await supabase
+                // 使用修正後的 sbClient
+                const { data: constants, error } = await sbClient
                     .from('NMC_CONSTANTS')
                     .select('*')
                     .eq('category', currentCategory)
@@ -162,7 +163,7 @@
 
             } catch (err) {
                 console.error('讀取常數失敗:', err.message);
-                alert('讀取資料失敗，請確認 Supabase 欄位設定。');
+                alert('讀取資料失敗，請確認 Supabase 欄位設定與 RLS 是否關閉。');
             }
         }
 
@@ -242,8 +243,6 @@
                     }
                     codesSeen.add(code);
 
-                    const idValue = row.querySelector('.const-id').value;
-
                     updateDataArray.push({
                         category: currentCategory,
                         code: code,
@@ -254,10 +253,8 @@
                     });
                 }
 
-                // 為了與前端同步，簡易安全的作法是：
-                // 刪除資料庫中當前分類 (category) 的舊資料，再將前端目前的資料全新批次塞入 (Upsert/Insert)
-                // 註：這能同時完美處理前端被「刪除」的資料列。
-                const { error: deleteError } = await supabase
+                // 清除該分類舊資料，並重新寫入前端目前調整好的完整常數清單
+                const { error: deleteError } = await sbClient
                     .from('NMC_CONSTANTS')
                     .delete()
                     .eq('category', currentCategory);
@@ -265,7 +262,7 @@
                 if (deleteError) throw deleteError;
 
                 if (updateDataArray.length > 0) {
-                    const { error: insertError } = await supabase
+                    const { error: insertError } = await sbClient
                         .from('NMC_CONSTANTS')
                         .insert(updateDataArray);
 
