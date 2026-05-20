@@ -120,23 +120,28 @@
     </div>
 
     <script>
-        // 初始化 Supabase
+        // 核心連線物件宣告在全域
         const SUPABASE_URL = 'https://xteglzzciggiwblwzlvh.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0ZWdsenpjaWdnaXdibHd6bHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxODIwNzQsImV4cCI6MjA5NDc1ODA3NH0.5KM7d-OYmNK5RrFSL35WdYr2r_alYzWUXSbq0ZHfO6A';
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let currentTeamId = null;   // 初始化為 null，代表一開始是等待查詢或全新建立狀態
+        let currentTeamId = null;   
         let isLocked = 'N';
-        let defOptionsCached = [];   // 快取守備選單
+        let defOptionsCached = [];   
 
-        // 頁面載入完成
+        // 頁面初始化事件處理
         window.addEventListener('DOMContentLoaded', async () => {
-            await loadDefConstants();   // 1. 先讀字典檔
-            await refreshQueryLov();    // 2. 載入頂部球隊選單 (QUERY)
-            toggleDetailSection(false); // 3. 預設將下方明細防呆鎖定
+            try {
+                await loadDefConstants();   
+                await refreshQueryLov();    
+                toggleDetailSection(false); 
+            } catch (err) {
+                console.error("初始化失敗:", err.message);
+            }
         });
 
-        // 2. 撈取大寫 NMC_CONSTANTS 的守備位置選單
+        // ================= 💡 全域函數宣告，確保 HTML 上的 onclick 絕對呼叫得到 =================
+
         async function loadDefConstants() {
             try {
                 const { data, error } = await sbClient
@@ -153,7 +158,6 @@
             }
         }
 
-        // 3. 載入/更新頂部查詢選單 (QUERY 功能)
         async function refreshQueryLov() {
             try {
                 const { data: teams, error } = await sbClient
@@ -164,15 +168,14 @@
                 if (error) throw error;
 
                 const select = document.getElementById('queryTeamSelect');
+                if (!select) return;
+
                 select.innerHTML = `<option value="NEW">➕ 建立全新球隊...</option>`;
-                
                 if (teams) {
                     teams.forEach(t => {
                         select.innerHTML += `<option value="${t.team_id}">[ID: ${t.team_id}] ${t.team_name}</option>`;
                     });
                 }
-                
-                // 保持選單定位在當前編輯的球隊上
                 if (currentTeamId) {
                     select.value = currentTeamId;
                 }
@@ -181,18 +184,19 @@
             }
         }
 
-        // 4. 點擊「載入球隊資料」觸發動作
         async function executeQuery() {
-            const selectValue = document.getElementById('queryTeamSelect').value;
+            const select = document.getElementById('queryTeamSelect');
+            if (!select) return;
+            const selectValue = select.value;
+            
             if (selectValue === 'NEW') {
-                // 回歸全新創隊模式：重設主檔欄位
                 currentTeamId = null;
                 document.getElementById('teamForm').reset();
                 document.getElementById('team_id').value = '';
                 document.getElementById('team_name').value = '笨鳥慢飛';
                 isLocked = 'N';
                 handleLockStatus('N');
-                toggleDetailSection(false); // 🔒 未存檔，重新上鎖明細
+                toggleDetailSection(false); 
                 document.getElementById('rosterTableBody').innerHTML = '';
             } else {
                 currentTeamId = parseInt(selectValue);
@@ -200,9 +204,78 @@
             }
         }
 
-        // 5. 讀取球隊主檔與明細 (NMC_TEAMS & NMC_TEAM_ROSTERS)
         async function loadTeamData() {
             if (!currentTeamId) return;
             try {
-                // A. 讀取主檔 (NMC_TEAMS)
-                const { data: team,
+                const { data: team, error: teamError } = await sbClient
+                    .from('NMC_TEAMS')
+                    .select('*')
+                    .eq('team_id', currentTeamId)
+                    .maybeSingle();
+
+                if (teamError) throw teamError;
+
+                if (team) {
+                    document.getElementById('team_id').value = team.team_id;
+                    document.getElementById('team_name').value = team.team_name || '';
+                    document.getElementById('school').value = team.school || '';
+                    document.getElementById('department').value = team.department || '';
+                    document.getElementById('established_year').value = team.established_year || '';
+                    document.getElementById('main_field').value = team.main_field || '';
+                    document.getElementById('sub_field').value = team.sub_field || '';
+                    document.getElementById('team_memo').value = team.memo || '';
+                    isLocked = team.is_locked || 'N';
+                }
+                
+                handleLockStatus(isLocked);
+                toggleDetailSection(true); 
+
+                const { data: rosters, error: rosterError } = await sbClient
+                    .from('NMC_TEAM_ROSTERS')
+                    .select('*')
+                    .eq('team_id', currentTeamId)
+                    .order('player_num', { ascending: true });
+
+                if (rosterError) throw rosterError;
+
+                const tbody = document.getElementById('rosterTableBody');
+                tbody.innerHTML = ''; 
+                
+                if (rosters && rosters.length > 0) {
+                    rosters.forEach(player => addPlayerRow(player));
+                } else {
+                    if (isLocked !== 'Y') addPlayerRow(); 
+                }
+
+                if (isLocked === 'Y') disableAllInputs();
+
+            } catch (err) {
+                console.error('讀取球隊資料失敗:', err.message);
+            }
+        }
+
+        function toggleDetailSection(enable) {
+            const container = document.getElementById('detailContainer');
+            const alertBox = document.getElementById('detailWorkflowAlert');
+            const btnAddPlayer = document.getElementById('btnAddPlayer');
+            const btnSaveDetail = document.getElementById('btnSaveDetail');
+
+            if (!container || !alertBox) return;
+
+            if (enable) {
+                container.classList.remove('opacity-40', 'pointer-events-none');
+                alertBox.style.display = 'none';
+                if(btnAddPlayer) btnAddPlayer.disabled = false;
+                if(btnSaveDetail) btnSaveDetail.disabled = false;
+            } else {
+                container.classList.add('opacity-40', 'pointer-events-none');
+                alertBox.style.display = 'block';
+                if(btnAddPlayer) btnAddPlayer.disabled = true;
+                if(btnSaveDetail) btnSaveDetail.disabled = true;
+            }
+        }
+
+        function addPlayerRow(data = {}) {
+            const tbody = document.getElementById('rosterTableBody');
+            if (!tbody) return;
+            const rowId = 'row_'
