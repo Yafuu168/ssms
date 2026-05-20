@@ -102,12 +102,12 @@
     </div>
 
     <script>
-        // 1. 初始化 Supabase
+        // 1. 初始化 Supabase (已填入你的真實憑證)
         const SUPABASE_URL = 'https://xteglzzciggiwblwzlvh.supabase.co';
-        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY'; // ⚠️ 請記得換成你完整的實體 Anon Key
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0ZWdsenpjaWdnaXdibHd6bHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxODIwNzQsImV4cCI6MjA5NDc1ODA3NH0.5KM7d-OYmNK5RrFSL35WdYr2r_alYzWUXSbq0ZHfO6A';
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let currentTeamId = 1; // 預設測試第一隊
+        let currentTeamId = 1; // 預設新增/修改第 1 隊
         let isLocked = 'N';
         let defOptionsCached = []; // 快取 NMC_CONSTANTS 的守備選單
 
@@ -157,6 +157,8 @@
                     document.getElementById('team_memo').value = team.memo || '';
                     isLocked = team.IS_LOCKED || 'N';
                 } else {
+                    // 💡 防呆修正：若查無資料，初始化建立介面，不讓系統卡死
+                    document.getElementById('team_id').value = '';
                     document.getElementById('team_name').value = '笨鳥慢飛';
                     isLocked = 'N';
                 }
@@ -178,14 +180,13 @@
                 if (rosters && rosters.length > 0) {
                     rosters.forEach(player => addPlayerRow(player));
                 } else {
-                    if (isLocked !== 'Y') addPlayerRow(); 
+                    // 💡 修正點：就算沒撈到球員，也立刻開一個空白列給使用者填寫
+                    addPlayerRow(); 
                 }
-
-                if (isLocked === 'Y') disableAllInputs();
 
             } catch (err) {
                 console.error('讀取球隊資料失敗:', err.message);
-                alert('讀取資料失敗，請確認連線金鑰與大寫資料表是否存在。');
+                alert('讀取資料失敗，請確認大寫資料表是否存在與 RLS 是否關閉。');
             }
         }
 
@@ -294,6 +295,7 @@
                     teamData.team_id = parseInt(document.getElementById('team_id').value);
                 }
 
+                // 透過 upsert 自動新增/更新主檔
                 const { data: upsertResult, error: masterError } = await sbClient
                     .from('NMC_TEAMS')
                     .upsert(teamData)
@@ -318,7 +320,7 @@
                             pid: row.querySelector('.player-pid').value.trim(),
                             player_name: name,
                             gender: row.querySelector('.player-gender').value,
-                            def_id: row.querySelector('.player-def-id').value, 
+                            def_id: row.querySelector('.player-def-id').value || null, 
                             join_date: row.querySelector('.player-join-date').value || null,
                             memo: row.querySelector('.player-memo').value.trim()
                         });
