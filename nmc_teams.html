@@ -9,7 +9,7 @@
 </head>
 <body class="bg-gray-100 p-6">
 
-    <div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+    <div class="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow-lg">
         
         <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-2">
@@ -93,13 +93,13 @@
                         <table class="min-w-full divide-y divide-gray-200 text-sm text-left">
                             <thead class="bg-gray-50 text-gray-700 font-medium">
                                 <tr>
-                                    <th class="p-3 w-24">背號(Num)</th>
-                                    <th class="p-3 w-36">學號(PID)</th>
-                                    <th class="p-3">姓名</th>
-                                    <th class="p-3 w-24">性別</th>
-                                    <th class="p-3 w-44">守備位置 (來自LOV)</th>
-                                    <th class="p-3 w-36">加入日期</th>
-                                    <th class="p-3">備註</th>
+                                    <th class="p-3 w-20">背號</th>
+                                    <th class="p-3 w-32">學號(PID)</th>
+                                    <th class="p-3 w-32">姓名</th>
+                                    <th class="p-3 w-20">性別</th>
+                                    <th class="p-3 w-40">守備位置(LOV)</th>
+                                    <th class="p-3 w-40">預設棒次(LOV)</th> <th class="p-3 w-36">加入日期</th>
+                                    <th class="p-3 w-36">引退日期</th> <th class="p-3">備註</th>
                                     <th class="p-3 w-20 text-center">操作</th>
                                 </tr>
                             </thead>
@@ -120,28 +120,28 @@
     </div>
 
     <script>
-        // 核心連線物件宣告在全域
         const SUPABASE_URL = 'https://xteglzzciggiwblwzlvh.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0ZWdsenpjaWdnaXdibHd6bHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxODIwNzQsImV4cCI6MjA5NDc1ODA3NH0.5KM7d-OYmNK5RrFSL35WdYr2r_alYzWUXSbq0ZHfO6A';
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let currentTeamId = null;   
         let isLocked = 'N';
-        let defOptionsCached = [];   
+        let defOptionsCached = [];    // 快取守備常數清單
+        let lineupOptionsCached = []; // ✨ 新增：快取棒次常數清單
 
-        // 頁面初始化事件處理
+        // 頁面初始化
         window.addEventListener('DOMContentLoaded', async () => {
             try {
-                await loadDefConstants();   
-                await refreshQueryLov();    
-                toggleDetailSection(false); 
+                await loadDefConstants();    // 1-1. 載入守備位置字典
+                await loadLineupConstants(); // 1-2. ✨ 新增：載入預設棒次字典
+                await refreshQueryLov();     // 2. 載入頂部球隊選單
+                toggleDetailSection(false);  // 3. 預設防呆鎖定明細
             } catch (err) {
                 console.error("初始化失敗:", err.message);
             }
         });
 
-        // ================= 💡 全域函數宣告，確保 HTML 上的 onclick 絕對呼叫得到 =================
-
+        // 撈取守備位置常數 (DEF)
         async function loadDefConstants() {
             try {
                 const { data, error } = await sbClient
@@ -150,7 +150,6 @@
                     .eq('category', 'DEF')
                     .eq('is_active', 'Y')
                     .order('sort_order', { ascending: true });
-
                 if (error) throw error;
                 defOptionsCached = data || [];
             } catch (err) {
@@ -158,6 +157,23 @@
             }
         }
 
+        // ✨ 新增：撈取隊列棒次常數 (LINEUP)
+        async function loadLineupConstants() {
+            try {
+                const { data, error } = await sbClient
+                    .from('NMC_CONSTANTS')
+                    .select('code, name_zh')
+                    .eq('category', 'LINEUP')
+                    .eq('is_active', 'Y')
+                    .order('sort_order', { ascending: true });
+                if (error) throw error;
+                lineupOptionsCached = data || [];
+            } catch (err) {
+                console.error('載入棒次常數失敗:', err.message);
+            }
+        }
+
+        // 載入頂部查詢選單
         async function refreshQueryLov() {
             try {
                 const { data: teams, error } = await sbClient
@@ -275,6 +291,7 @@
             }
         }
 
+        // 7. 動態在 Table 中新增一筆球員輸入列 (擴充新欄位)
         function addPlayerRow(data = {}) {
             const tbody = document.getElementById('rosterTableBody');
             if (!tbody) return;
@@ -283,10 +300,18 @@
             tr.id = rowId;
             tr.className = 'hover:bg-gray-50 transition';
 
+            // 組裝守備下拉選單 (DEF)
             let defSelectOptions = `<option value="">-- 請選擇 --</option>`;
             defOptionsCached.forEach(opt => {
                 const selected = (data.def_id === opt.code) ? 'selected' : '';
                 defSelectOptions += `<option value="${opt.code}" ${selected}>${opt.code} - ${opt.name_zh}</option>`;
+            });
+
+            // ✨ 新增：組裝預設棒次下拉選單 (LINEUP)
+            let lineupSelectOptions = `<option value="">-- 請選擇 --</option>`;
+            lineupOptionsCached.forEach(opt => {
+                const selected = (data.lineup_id === opt.code) ? 'selected' : '';
+                lineupSelectOptions += `<option value="${opt.code}" ${selected}>${opt.code} - ${opt.name_zh}</option>`;
             });
 
             tr.innerHTML = `
@@ -307,7 +332,13 @@
                         ${defSelectOptions}
                     </select>
                 </td>
+                <td class="p-2">
+                    <select class="player-lineup-id w-full border rounded p-1 font-semibold text-purple-800">
+                        ${lineupSelectOptions}
+                    </select>
+                </td>
                 <td class="p-2"><input type="date" class="player-join-date w-full border rounded p-1" value="${data.join_date || ''}"></td>
+                <td class="p-2"><input type="date" class="player-retire-date w-full border rounded p-1 text-red-600" value="${data.retire_date || ''}"></td>
                 <td class="p-2"><input type="text" class="player-memo w-full border rounded p-1" value="${data.memo || ''}"></td>
                 <td class="p-2 text-center">
                     <button type="button" onclick="deleteRow('${rowId}')" class="btn-delete text-red-600 hover:text-red-900 font-medium">刪除</button>
@@ -322,7 +353,7 @@
             if (row) row.remove();
         }
 
-        // 💾 階段一儲存：主檔 (Master) 獨立全域函數
+        // 💾 階段一儲存：主檔 (Master)
         async function saveMasterData() {
             const teamNameEl = document.getElementById('team_name');
             if (!teamNameEl) return;
@@ -371,7 +402,7 @@
             }
         }
 
-        // 📋 階段二儲存：明細檔 (Detail) 獨立全域函數
+        // 📋 階段二儲存：明細檔 (Detail - 包含收集新欄位)
         async function saveDetailData() {
             if (!currentTeamId) {
                 alert('錯誤：缺乏球隊編號，請先執行第一階段「儲存球隊主檔」！');
@@ -392,7 +423,9 @@
                             player_name: name,
                             gender: row.querySelector('.player-gender').value,
                             def_id: row.querySelector('.player-def-id').value || null, 
+                            lineup_id: row.querySelector('.player-lineup-id').value || null, // ✨ 新增寫入
                             join_date: row.querySelector('.player-join-date').value || null,
+                            retire_date: row.querySelector('.player-retire-date').value || null, // ✨ 新增寫入
                             memo: row.querySelector('.player-memo').value.trim()
                         });
                     }
