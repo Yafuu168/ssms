@@ -11,10 +11,14 @@
 
     <div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-lg">
         
-        <div class="flex justify-between items-center border-b pb-4 mb-6">
-            <div>
-                <h1 class="text-2xl font-bold text-gray-800">球隊登錄系統 (NMC_TEAMS)</h1>
-                <p class="text-sm text-gray-500 mt-1">管理慢壘參賽球隊基本資料與 40 人球員名單</p>
+        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-bold text-blue-900 whitespace-nowrap">🔍 選擇維護球隊：</label>
+                <select id="queryTeamSelect" class="bg-white border border-blue-300 rounded-md p-1.5 text-sm font-medium w-64 focus:ring-2 focus:ring-blue-500">
+                    </select>
+                <button type="button" onclick="executeQuery()" class="bg-blue-700 hover:bg-blue-800 text-white px-4 py-1.5 rounded text-sm font-medium shadow transition">
+                    載入球隊資料
+                </button>
             </div>
             <div id="lockStatusBadge" class="px-4 py-1.5 rounded-full text-sm font-semibold bg-gray-200 text-gray-700">
                 載入中...
@@ -24,14 +28,19 @@
         <form id="teamForm" onsubmit="event.preventDefault();">
             
             <div class="mb-8">
-                <h2 class="text-lg font-semibold text-blue-700 mb-4 flex items-center">
-                    <span class="w-2 h-5 bg-blue-700 inline-block mr-2 rounded"></span> 球隊基本資料 (Master)
-                </h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-blue-700 flex items-center">
+                        <span class="w-2 h-5 bg-blue-700 inline-block mr-2 rounded"></span> 球隊基本資料 (Master)
+                    </h2>
+                    <button type="button" id="btnSaveMaster" onclick="saveMasterData()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-1.5 rounded shadow text-sm font-medium transition">
+                        💾 儲存球隊主檔
+                    </button>
+                </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Team_id (流水號)</label>
-                        <input type="text" id="team_id" readonly class="mt-1 block w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-500" placeholder="系統自動生成">
+                        <input type="text" id="team_id" readonly class="mt-1 block w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-500 font-mono" placeholder="系統自動生成">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700">隊名</label>
@@ -64,60 +73,70 @@
                 </div>
             </div>
 
-            <div class="mb-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-semibold text-green-700 flex items-center">
-                        <span class="w-2 h-5 bg-green-700 inline-block mr-2 rounded"></span> 40人名單明細 (Detail)
-                    </h2>
-                    <button type="button" id="btnAddPlayer" onclick="addPlayerRow()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow text-sm font-medium transition">
-                        ＋ 新增球員
-                    </button>
+            <div class="mb-6 border-t pt-6">
+                
+                <div id="detailWorkflowAlert" class="mb-4 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-sm flex items-center shadow-sm">
+                    💡 <strong>系統提示：</strong> 請先填寫上方球隊基本資料並點擊「儲存球隊主檔」，建立正式編號後，系統才開放下方球員名單登記。
                 </div>
 
-                <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm text-left">
-                        <thead class="bg-gray-50 text-gray-700 font-medium">
-                            <tr>
-                                <th class="p-3 w-24">背號(Num)</th>
-                                <th class="p-3 w-36">學號(PID)</th>
-                                <th class="p-3">姓名</th>
-                                <th class="p-3 w-24">性別</th>
-                                <th class="p-3 w-44">守備位置 (來自LOV)</th>
-                                <th class="p-3 w-36">加入日期</th>
-                                <th class="p-3">備註</th>
-                                <th class="p-3 w-20 text-center">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="rosterTableBody" class="divide-y divide-gray-200 bg-white">
-                            </tbody>
-                    </table>
-                </div>
-            </div>
+                <div id="detailContainer" class="opacity-40 pointer-events-none transition-all duration-300">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-green-700 flex items-center">
+                            <span class="w-2 h-5 bg-green-700 inline-block mr-2 rounded"></span> 40人名單明細 (Detail)
+                        </h2>
+                        <button type="button" id="btnAddPlayer" onclick="addPlayerRow()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow text-sm font-medium transition">
+                            ＋ 新增球員
+                        </button>
+                    </div>
 
-            <div class="flex justify-end gap-4 border-t pt-4">
-                <button type="button" onclick="loadTeamData()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded shadow transition">重新讀取</button>
-                <button type="button" id="btnSave" onclick="saveAllData()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded shadow transition">儲存資料</button>
+                    <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-sm mb-4">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm text-left">
+                            <thead class="bg-gray-50 text-gray-700 font-medium">
+                                <tr>
+                                    <th class="p-3 w-24">背號(Num)</th>
+                                    <th class="p-3 w-36">學號(PID)</th>
+                                    <th class="p-3">姓名</th>
+                                    <th class="p-3 w-24">性別</th>
+                                    <th class="p-3 w-44">守備位置 (來自LOV)</th>
+                                    <th class="p-3 w-36">加入日期</th>
+                                    <th class="p-3">備註</th>
+                                    <th class="p-3 w-20 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rosterTableBody" class="divide-y divide-gray-200 bg-white">
+                                </tbody>
+                        </table>
+                    </div>
+
+                    <div class="flex justify-end gap-4 border-t pt-4">
+                        <button type="button" id="btnSaveDetail" onclick="saveDetailData()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded shadow text-sm font-medium transition">
+                            📋 儲存球員名單
+                        </button>
+                    </div>
+                </div>
+
             </div>
         </form>
     </div>
 
     <script>
-        // 1. 初始化 Supabase (已填入你的真實憑證)
+        // 初始化 Supabase
         const SUPABASE_URL = 'https://xteglzzciggiwblwzlvh.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0ZWdsenpjaWdnaXdibHd6bHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxODIwNzQsImV4cCI6MjA5NDc1ODA3NH0.5KM7d-OYmNK5RrFSL35WdYr2r_alYzWUXSbq0ZHfO6A';
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let currentTeamId = 1; // 預設新增/修改第 1 隊
+        let currentTeamId = null;   // 初始化為 null，代表一開始是等待查詢或全新建立狀態
         let isLocked = 'N';
-        let defOptionsCached = []; // 快取 NMC_CONSTANTS 的守備選單
+        let defOptionsCached = [];   // 快取守備選單
 
         // 頁面載入完成
         window.addEventListener('DOMContentLoaded', async () => {
-            await loadDefConstants(); // 先讀字典檔
-            await loadTeamData();     // 再讀球隊明細
+            await loadDefConstants();   // 1. 先讀字典檔
+            await refreshQueryLov();    // 2. 載入頂部球隊選單 (QUERY)
+            toggleDetailSection(false); // 3. 預設將下方明細防呆鎖定
         });
 
-        // 2. 異步撈取大寫 NMC_CONSTANTS 的守備位置選單
+        // 2. 撈取大寫 NMC_CONSTANTS 的守備位置選單
         async function loadDefConstants() {
             try {
                 const { data, error } = await sbClient
@@ -134,223 +153,56 @@
             }
         }
 
-        // 3. 讀取球隊主檔與明細 (NMC_TEAMS & NMC_TEAM_ROSTERS)
+        // 3. 載入/更新頂部查詢選單 (QUERY 功能)
+        async function refreshQueryLov() {
+            try {
+                const { data: teams, error } = await sbClient
+                    .from('NMC_TEAMS')
+                    .select('team_id, team_name')
+                    .order('team_id', { ascending: true });
+
+                if (error) throw error;
+
+                const select = document.getElementById('queryTeamSelect');
+                select.innerHTML = `<option value="NEW">➕ 建立全新球隊...</option>`;
+                
+                if (teams) {
+                    teams.forEach(t => {
+                        select.innerHTML += `<option value="${t.team_id}">[ID: ${t.team_id}] ${t.team_name}</option>`;
+                    });
+                }
+                
+                // 保持選單定位在當前編輯的球隊上
+                if (currentTeamId) {
+                    select.value = currentTeamId;
+                }
+            } catch (err) {
+                console.error('載入查詢選單失敗:', err.message);
+            }
+        }
+
+        // 4. 點擊「載入球隊資料」觸發動作
+        async function executeQuery() {
+            const selectValue = document.getElementById('queryTeamSelect').value;
+            if (selectValue === 'NEW') {
+                // 回歸全新創隊模式：重設主檔欄位
+                currentTeamId = null;
+                document.getElementById('teamForm').reset();
+                document.getElementById('team_id').value = '';
+                document.getElementById('team_name').value = '笨鳥慢飛';
+                isLocked = 'N';
+                handleLockStatus('N');
+                toggleDetailSection(false); // 🔒 未存檔，重新上鎖明細
+                document.getElementById('rosterTableBody').innerHTML = '';
+            } else {
+                currentTeamId = parseInt(selectValue);
+                await loadTeamData();
+            }
+        }
+
+        // 5. 讀取球隊主檔與明細 (NMC_TEAMS & NMC_TEAM_ROSTERS)
         async function loadTeamData() {
+            if (!currentTeamId) return;
             try {
                 // A. 讀取主檔 (NMC_TEAMS)
-                const { data: team, error: teamError } = await sbClient
-                    .from('NMC_TEAMS')
-                    .select('*')
-                    .eq('team_id', currentTeamId)
-                    .maybeSingle();
-
-                if (teamError) throw teamError;
-
-                if (team) {
-                    document.getElementById('team_id').value = team.team_id;
-                    document.getElementById('team_name').value = team.team_name || '';
-                    document.getElementById('school').value = team.school || '';
-                    document.getElementById('department').value = team.department || '';
-                    document.getElementById('established_year').value = team.established_year || '';
-                    document.getElementById('main_field').value = team.main_field || '';
-                    document.getElementById('sub_field').value = team.sub_field || '';
-                    document.getElementById('team_memo').value = team.memo || '';
-                    isLocked = team.is_locked || 'N';
-                } else {
-                    // 💡 防呆修正：若查無資料，初始化建立介面，不讓系統卡死
-                    document.getElementById('team_id').value = '';
-                    document.getElementById('team_name').value = '笨鳥慢飛';
-                    isLocked = 'N';
-                }
-                
-                handleLockStatus(isLocked);
-
-                // B. 讀取明細檔 (NMC_TEAM_ROSTERS)
-                const { data: rosters, error: rosterError } = await sbClient
-                    .from('NMC_TEAM_ROSTERS')
-                    .select('*')
-                    .eq('team_id', currentTeamId)
-                    .order('player_num', { ascending: true });
-
-                if (rosterError) throw rosterError;
-
-                const tbody = document.getElementById('rosterTableBody');
-                tbody.innerHTML = ''; 
-                
-                if (rosters && rosters.length > 0) {
-                    rosters.forEach(player => addPlayerRow(player));
-                } else {
-                    // 💡 修正點：就算沒撈到球員，也立刻開一個空白列給使用者填寫
-                    addPlayerRow(); 
-                }
-
-            } catch (err) {
-                console.error('讀取球隊資料失敗:', err.message);
-                alert('讀取資料失敗，請確認大寫資料表是否存在與 RLS 是否關閉。');
-            }
-        }
-
-        // 4. 動態在 Table 中新增一筆球員輸入列（內含 LOV 選單）
-        function addPlayerRow(data = {}) {
-            const tbody = document.getElementById('rosterTableBody');
-            const rowId = 'row_' + Date.now() + Math.random().toString(36).substr(2, 5);
-
-            const tr = document.createElement('tr');
-            tr.id = rowId;
-            tr.className = 'hover:bg-gray-50 transition';
-
-            // 組裝下拉選單
-            let defSelectOptions = `<option value="">-- 請選擇 --</option>`;
-            defOptionsCached.forEach(opt => {
-                const selected = (data.def_id === opt.code) ? 'selected' : '';
-                defSelectOptions += `<option value="${opt.code}" ${selected}>${opt.code} - ${opt.name_zh}</option>`;
-            });
-
-            tr.innerHTML = `
-                <td class="p-2">
-                    <input type="hidden" class="player-id" value="${data.player_id || ''}">
-                    <input type="text" class="player-num w-full border rounded p-1 text-center" value="${data.player_num || ''}" placeholder="018">
-                </td>
-                <td class="p-2"><input type="text" class="player-pid w-full border rounded p-1" value="${data.pid || ''}" placeholder="學號"></td>
-                <td class="p-2"><input type="text" class="player-name w-full border rounded p-1" value="${data.player_name || ''}" placeholder="姓名"></td>
-                <td class="p-2">
-                    <select class="player-gender w-full border rounded p-1">
-                        <option value="M" ${data.gender === 'M' ? 'selected' : ''}>男</option>
-                        <option value="F" ${data.gender === 'F' ? 'selected' : ''}>女</option>
-                    </select>
-                </td>
-                <td class="p-2">
-                    <select class="player-def-id w-full border rounded p-1 font-semibold text-blue-800">
-                        ${defSelectOptions}
-                    </select>
-                </td>
-                <td class="p-2"><input type="date" class="player-join-date w-full border rounded p-1" value="${data.join_date || ''}"></td>
-                <td class="p-2"><input type="text" class="player-memo w-full border rounded p-1" value="${data.memo || ''}"></td>
-                <td class="p-2 text-center">
-                    <button type="button" onclick="deleteRow('${rowId}')" class="btn-delete text-red-600 hover:text-red-900 font-medium">刪除</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        }
-
-        function deleteRow(rowId) {
-            if (isLocked === 'Y') return;
-            const row = document.getElementById(rowId);
-            if (row) row.remove();
-        }
-
-        // 5. 處理鎖定狀態介面控制 (IS_LOCKED)
-        function handleLockStatus(status) {
-            const badge = document.getElementById('lockStatusBadge');
-            const btnSave = document.getElementById('btnSave');
-            const btnAddPlayer = document.getElementById('btnAddPlayer');
-
-            if (status === 'Y') {
-                badge.innerText = '🔒 已鎖定 (唯讀)';
-                badge.className = 'px-4 py-1.5 rounded-full text-sm font-semibold bg-red-100 text-red-700';
-                if(btnSave) btnSave.style.display = 'none';
-                if(btnAddPlayer) btnAddPlayer.style.display = 'none';
-                disableAllInputs();
-            } else {
-                badge.innerText = '🔓 開放編輯中';
-                badge.className = 'px-4 py-1.5 rounded-full text-sm font-semibold bg-green-100 text-green-700';
-                if(btnSave) btnSave.style.display = 'block';
-                if(btnAddPlayer) btnAddPlayer.style.display = 'block';
-            }
-        }
-
-        function disableAllInputs() {
-            const form = document.getElementById('teamForm');
-            const inputs = form.querySelectorAll('input, select, button:not([onclick="loadTeamData()"])');
-            inputs.forEach(input => {
-                input.disabled = true;
-                input.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
-            });
-            document.querySelectorAll('.btn-delete').forEach(btn => btn.style.display = 'none');
-        }
-
-        // 6. 儲存資料回 Supabase
-        async function saveAllData() {
-            if (isLocked === 'Y') {
-                alert('資料已鎖定，無法進行更新！');
-                return;
-            }
-
-            try {
-                // A. 收集 Master 資料
-                const teamData = {
-                    team_name: document.getElementById('team_name').value,
-                    school: document.getElementById('school').value,
-                    department: document.getElementById('department').value,
-                    established_year: document.getElementById('established_year').value ? parseInt(document.getElementById('established_year').value) : null,
-                    main_field: document.getElementById('main_field').value,
-                    sub_field: document.getElementById('sub_field').value,
-                    memo: document.getElementById('team_memo').value,
-                    is_locked: 'N'
-                };
-
-                let savedTeamId = currentTeamId;
-
-                if (document.getElementById('team_id').value) {
-                    teamData.team_id = parseInt(document.getElementById('team_id').value);
-                }
-
-                // 透過 upsert 自動新增/更新主檔
-                const { data: upsertResult, error: masterError } = await sbClient
-                    .from('NMC_TEAMS')
-                    .upsert(teamData)
-                    .select();
-
-                if (masterError) throw masterError;
-                if (upsertResult && upsertResult.length > 0) {
-                    savedTeamId = upsertResult[0].team_id;
-                    currentTeamId = savedTeamId;
-                }
-
-                // B. 收集 Detail 資料
-                const rows = document.querySelectorAll('#rosterTableBody tr');
-                const rosterDataArray = [];
-
-                rows.forEach(row => {
-                    const name = row.querySelector('.player-name').value.trim();
-                    if (name) { 
-                        rosterDataArray.push({
-                            team_id: savedTeamId,
-                            player_num: row.querySelector('.player-num').value.trim(),
-                            pid: row.querySelector('.player-pid').value.trim(),
-                            player_name: name,
-                            gender: row.querySelector('.player-gender').value,
-                            def_id: row.querySelector('.player-def-id').value || null, 
-                            join_date: row.querySelector('.player-join-date').value || null,
-                            memo: row.querySelector('.player-memo').value.trim()
-                        });
-                    }
-                });
-
-                // 刪除該球隊既有的球員名單並批次寫入新清單
-                const { error: deleteError } = await sbClient
-                    .from('NMC_TEAM_ROSTERS')
-                    .delete()
-                    .eq('team_id', savedTeamId);
-
-                if (deleteError) throw deleteError;
-
-                if (rosterDataArray.length > 0) {
-                    const { error: insertError } = await sbClient
-                        .from('NMC_TEAM_ROSTERS')
-                        .insert(rosterDataArray);
-                    
-                    if (insertError) throw insertError;
-                }
-
-                alert('球隊與40人名單資料全數儲存成功！');
-                loadTeamData();
-
-            } catch (err) {
-                console.error('儲存失敗:', err.message);
-                alert('儲存失敗：' + err.message);
-            }
-        }
-    </script>
-</body>
-</html>
+                const { data: team,
