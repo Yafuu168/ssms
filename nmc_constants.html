@@ -81,7 +81,7 @@
     <script>
         // 1. 初始化 Supabase (已帶入你的實際憑證)
         const SUPABASE_URL = 'https://xteglzzciggiwblwzlvh.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0ZWdsemZjaWdnaXdibHd6bHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDY1Nzg4MDAsImV4cCI6MjAyMjE1NDgwMH0.xxx'; // 這裡維持你原有的完整金鑰即可
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0ZWdsenpjaWdnaXdibHd6bHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxODIwNzQsImV4cCI6MjA5NDc1ODA3NH0.5KM7d-OYmNK5RrFSL35WdYr2r_alYzWUXSbq0ZHfO6A'; // 這裡維持你原有的完整金鑰即可
         
         // 💡 修正關鍵：將連線實例變數名稱改為 sbClient，避免與全域物件名稱衝突
         const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
