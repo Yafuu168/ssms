@@ -255,7 +255,7 @@
 
                 // 清除該分類舊資料，並重新寫入前端目前調整好的完整常數清單
                 const { error: deleteError } = await sbClient
-                    .from('NMC_CONSTANTS')
+                    .from('nmc_constants')
                     .delete()
                     .eq('category', currentCategory);
 
@@ -263,7 +263,7 @@
 
                 if (updateDataArray.length > 0) {
                     const { error: insertError } = await sbClient
-                        .from('NMC_CONSTANTS')
+                        .from('nmc_constants')
                         .insert(updateDataArray);
 
                     if (insertError) throw insertError;
